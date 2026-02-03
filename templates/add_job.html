@@ -1,0 +1,90 @@
+{% extends "base.html" %}
+
+{% block title %}Add Job - Job Application Tracker{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-8">
+        <div class="card">
+            <div class="card-header bg-primary text-white">
+                <h3 class="mb-0"><i class="bi bi-plus-circle"></i> Add New Job Application</h3>
+            </div>
+            <div class="card-body">
+                <form method="POST" action="{{ url_for('add_job') }}">
+                    {{ form.hidden_tag() }}
+
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            {{ form.company_name.label(class="form-label") }}
+                            {{ form.company_name(class="form-control" + (" is-invalid" if form.company_name.errors else
+                            "")) }}
+                            {% if form.company_name.errors %}
+                            <div class="invalid-feedback">
+                                {{ form.company_name.errors[0] }}
+                            </div>
+                            {% endif %}
+                        </div>
+
+                        <div class="col-md-6">
+                            {{ form.role.label(class="form-label") }}
+                            {{ form.role(class="form-control" + (" is-invalid" if form.role.errors else "")) }}
+                            {% if form.role.errors %}
+                            <div class="invalid-feedback">
+                                {{ form.role.errors[0] }}
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <div class="row mb-3">
+                        <div class="col-md-4">
+                            {{ form.status.label(class="form-label") }}
+                            {{ form.status(class="form-select" + (" is-invalid" if form.status.errors else "")) }}
+                            {% if form.status.errors %}
+                            <div class="invalid-feedback">
+                                {{ form.status.errors[0] }}
+                            </div>
+                            {% endif %}
+                        </div>
+
+                        <div class="col-md-4">
+                            {{ form.application_date.label(class="form-label") }}
+                            {{ form.application_date(class="form-control" + (" is-invalid" if
+                            form.application_date.errors else "")) }}
+                            {% if form.application_date.errors %}
+                            <div class="invalid-feedback">
+                                {{ form.application_date.errors[0] }}
+                            </div>
+                            {% endif %}
+                        </div>
+
+                        <div class="col-md-4">
+                            {{ form.follow_up_date.label(class="form-label") }}
+                            {{ form.follow_up_date(class="form-control") }}
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        {{ form.job_description.label(class="form-label") }}
+                        {{ form.job_description(class="form-control") }}
+                        <small class="form-text text-muted">Paste the job description for resume matching
+                            (optional)</small>
+                    </div>
+
+                    <div class="mb-3">
+                        {{ form.notes.label(class="form-label") }}
+                        {{ form.notes(class="form-control") }}
+                    </div>
+
+                    <div class="d-flex justify-content-between">
+                        <a href="{{ url_for('index') }}" class="btn btn-secondary">
+                            <i class="bi bi-x-circle"></i> Cancel
+                        </a>
+                        {{ form.submit(class="btn btn-primary") }}
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
