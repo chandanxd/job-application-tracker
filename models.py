@@ -25,6 +25,7 @@ class JobApplication(db.Model):
         default=lambda: datetime.now(timezone.utc),
         onupdate=lambda: datetime.now(timezone.utc),
     )
+    resume_text = db.Column(db.Text, nullable=True)
     match_score = db.Column(db.Float, nullable=True)
 
     def __repr__(self):
