@@ -4,6 +4,8 @@ from flask import Flask, render_template, request, redirect, url_for, flash, sen
 from datetime import datetime, timedelta, timezone
 from models import db, JobApplication
 from forms import JobApplicationForm, SearchFilterForm
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.metrics.pairwise import cosine_similarity
 import csv
 from io import StringIO, BytesIO
 
@@ -93,8 +95,15 @@ def add_job():
             application_date=form.application_date.data,  # type: ignore
             follow_up_date=form.follow_up_date.data,  # type: ignore
             job_description=form.job_description.data,  # type: ignore
+            resume_text=form.resume_text.data,  # type: ignore
             notes=form.notes.data,  # type: ignore
         )
+
+        # Calculate match score if both resume text and job description (JD) exist
+        if form.resume_text.data and form.job_description.data:
+            job.match_score = calculate_match_score(
+                form.resume_text.data, form.job_description.data
+            )
 
         db.session.add(job)
         db.session.commit()
@@ -121,7 +130,18 @@ def edit_job(job_id):
         job.application_date = form.application_date.data
         job.follow_up_date = form.follow_up_date.data
         job.job_description = form.job_description.data
+        job.resume_text = form.resume_text
         job.notes = form.notes.data
+    else:
+        if request.method == "POST":
+            print("Form validation failed!")
+            print("Form errors: ", form.errors)
+
+    # Calculate match score if both resume text and job description (JD) exist
+    if form.resume_text.data and form.job_description.data:
+        job.match_score = calculate_match_score(
+            form.resume_text.data, form.job_description.data
+        )
 
         db.session.commit()
 
@@ -231,6 +251,31 @@ def export_csv():
         as_attachment=True,
         download_name=f'job_applications_{datetime.now().strftime("%Y%m%d")}.csv',
     )
+
+
+def calculate_match_score(resume_text, job_description):
+    """Calculate how well a resume matches a job description.
+    Returns a percentage (0-100)
+    """
+
+    # if either resume_text or job_description is missing, cant calculate
+    if not resume_text or not job_description:
+        return None
+
+    try:
+        # Create TF-IDF vectorizer (converts text to numbers)
+        vectorizer = TfidfVectorizer(stop_words="english")
+
+        # Convert both texts to TF-IDF vectors
+        tfidf_matrix = vectorizer.fit_transform([resume_text, job_description])
+
+        # Calculate cosine similarity (0 = no match, 1 = perfect match)
+        similarity = cosine_similarity(tfidf_matrix[0:1], tfidf_matrix[1:2])[0][0]  # type: ignore
+
+        # Convert to %
+        return round(similarity * 100, 2)
+    except:
+        return None
 
 
 if __name__ == "__main__":
