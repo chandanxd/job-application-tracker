@@ -266,19 +266,17 @@ def calculate_match_score(resume_text, job_description):
     if not resume_text or not job_description:
         return None
 
+    # Clean inputs
+    resume_text = resume_text.strip()
+    job_description = job_description.strip()
+
     try:
-        # Create TF-IDF vectorizer (converts text to numbers)
         vectorizer = TfidfVectorizer(stop_words="english")
-
-        # Convert both texts to TF-IDF vectors
         tfidf_matrix = vectorizer.fit_transform([resume_text, job_description])
-
-        # Calculate cosine similarity (0 = no match, 1 = perfect match)
         similarity = cosine_similarity(tfidf_matrix[0:1], tfidf_matrix[1:2])[0][0]  # type: ignore
-
-        # Convert to %
         return round(similarity * 100, 2)
-    except:
+    except Exception as e:
+        print(f"Error calculating match score: {e}")
         return None
 
 
