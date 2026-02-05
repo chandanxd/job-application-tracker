@@ -253,6 +253,10 @@ def export_csv():
     )
 
 
+@app.errorhandler(404)
+def not_found(e):
+    return render_template("404.html"), 404
+
 def calculate_match_score(resume_text, job_description):
     """Calculate how well a resume matches a job description.
     Returns a percentage (0-100)
