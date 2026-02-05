@@ -61,6 +61,7 @@
                                 <th>Status</th>
                                 <th>Applied</th>
                                 <th>Follow-up</th>
+                                <th>Match Score</th>
                                 <th>Actions</th>
                             </tr>
                         </thead>
@@ -89,6 +90,16 @@
                                     {% endif %}
                                     {% else %}
                                     <span class="text-muted">—</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if job.match_score%}
+                                    <span
+                                        class="badge bg-{% if job.match_score > 70 %}success{% elif job.match_score > 50 %}warning{% else %}danger{% endif %}">
+                                        {{ job.match_score }}%
+                                    </span>
+                                    {% else %}
+                                    <span class="text-muted">-</span>
                                     {% endif %}
                                 </td>
                                 <td>
