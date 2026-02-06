@@ -7,7 +7,7 @@ A Flask-based web application to manage job applications with intelligent resume
 ---
 
 ## Live Demo
-**[View Live Application](your-render-url-here)**
+**[View Live Application](https://job-tracker-t8qn.onrender.com)**
 
 ---
 
@@ -237,8 +237,8 @@ This project is licensed under the MIT License.
 ## Author
 
 **Your Name**
-- GitHub: [@yourusername](https://github.com/yourusername)
-- LinkedIn: [Your Profile](https://linkedin.com/in/yourprofile)
+- GitHub: [@chandanxd](https://github.com/chandanxd)
+- LinkedIn: [Chandan D](https://linkedin.com/in/chandanxd)
 
 ---
 
