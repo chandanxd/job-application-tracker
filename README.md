@@ -241,7 +241,7 @@ This project is licensed under the MIT License.
 
 ## Author
 
-**Your Name**
+**Chandan D**
 - GitHub: [@chandanxd](https://github.com/chandanxd)
 - LinkedIn: [Chandan D](https://linkedin.com/in/chandanxd)
 
