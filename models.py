@@ -1,38 +1,43 @@
+from datetime import UTC, date, datetime
+
 from flask_sqlalchemy import SQLAlchemy
-from datetime import datetime, timezone
+from sqlalchemy import Date, DateTime, Float, Integer, String, Text
+from sqlalchemy.orm import Mapped, mapped_column
 
 db = SQLAlchemy()
 
 
 class JobApplication(db.Model):
-    """Model representing a job application"""
+    """Model representing a job application."""
 
     __tablename__ = "job_applications"
 
-    id = db.Column(db.Integer, primary_key=True)
-    company_name = db.Column(db.String(200), nullable=False)
-    role = db.Column(db.String(200), nullable=False)
-    status = db.Column(db.String(50), nullable=False, default="Applied")
-    application_date = db.Column(
-        db.Date, nullable=False, default=lambda: datetime.now(timezone.utc)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    company_name: Mapped[str] = mapped_column(String(200), nullable=False)
+    role: Mapped[str] = mapped_column(String(200), nullable=False)
+    status: Mapped[str] = mapped_column(String(50), nullable=False, default="Applied")
+    application_date: Mapped[date] = mapped_column(
+        Date, nullable=False, default=date.today
     )
-    follow_up_date = db.Column(db.Date, nullable=True)
-    job_description = db.Column(db.Text, nullable=True)
-    notes = db.Column(db.Text, nullable=True)
-    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
-    updated_at = db.Column(
-        db.DateTime,
-        default=lambda: datetime.now(timezone.utc),
-        onupdate=lambda: datetime.now(timezone.utc),
+    follow_up_date: Mapped[date | None] = mapped_column(Date, nullable=True)
+    job_description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(UTC)
     )
-    resume_text = db.Column(db.Text, nullable=True)
-    match_score = db.Column(db.Float, nullable=True)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(UTC),
+        onupdate=lambda: datetime.now(UTC),
+    )
+    resume_text: Mapped[str | None] = mapped_column(Text, nullable=True)
+    match_score: Mapped[float | None] = mapped_column(Float, nullable=True)
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f"<JobApplication {self.company_name} - {self.role}>"
 
-    def to_dict(self):
-        """Convert to dictionary for JSON serialization (useful for CSV export)"""
+    def to_dict(self) -> dict:
+        """Convert the application to a dictionary."""
         return {
             "id": self.id,
             "company_name": self.company_name,
@@ -54,9 +59,10 @@ class JobApplication(db.Model):
         }
 
     @property
-    def needs_follow_up_soon(self):
-        """Check if follow-up is due within 3 days"""
-        if not self.follow_up_date:
+    def needs_follow_up_soon(self) -> bool:
+        """Check if follow-up is due within three days."""
+        if self.follow_up_date is None:
             return False
-        days_until = (self.follow_up_date - datetime.utcnow().date()).days
+
+        days_until = (self.follow_up_date - date.today()).days
         return 0 <= days_until <= 3
