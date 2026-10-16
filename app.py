@@ -22,29 +22,28 @@ app.config["SQLALCHEMY_DATABASE_URI"] = os.environ.get(
 )
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 
-# Fix for Heroku postgres:// -> postgresql:// issue
+# Fix for Heroku postgres:// -> postgresql:// compatibility.
 if app.config["SQLALCHEMY_DATABASE_URI"].startswith("postgres://"):
     app.config["SQLALCHEMY_DATABASE_URI"] = app.config[
         "SQLALCHEMY_DATABASE_URI"
     ].replace("postgres://", "postgresql://", 1)
 
-# Initialize database
+# Initialize database.
 db.init_app(app)
 
-# Create tables
+# Create tables.
 with app.app_context():
     db.create_all()
 
 
 @app.route("/")
 def index():
-    """Dashboard showing all job applications with filtering/search"""
+    """Display job applications with filtering and search."""
     form = SearchFilterForm(request.args, meta={"csrf": False})
 
-    # Start with all jobs
     query = JobApplication.query
 
-    # Apply search filter
+    # Apply search filter.
     search_query = request.args.get("search_query", "").strip()
     if search_query:
         query = query.filter(
@@ -54,12 +53,12 @@ def index():
             )
         )
 
-    # Apply status filter
+    # Apply status filter.
     status_filter = request.args.get("status_filter", "")
     if status_filter:
         query = query.filter(JobApplication.status == status_filter)
 
-    # Apply sorting
+    # Apply sorting.
     sort_by = request.args.get("sort_by", "application_date_desc")
     if sort_by == "application_date_desc":
         query = query.order_by(JobApplication.application_date.desc())
@@ -72,39 +71,57 @@ def index():
 
     jobs = query.all()
 
-    # Get jobs needing follow-up soon
+    # Get applications needing follow-up within the next three days.
     today = datetime.now(UTC).date()
     three_days_from_now = today + timedelta(days=3)
+
     follow_up_jobs = JobApplication.query.filter(
         JobApplication.follow_up_date.between(today, three_days_from_now)
     ).all()
 
     return render_template(
-        "index.html", jobs=jobs, form=form, follow_up_jobs=follow_up_jobs
+        "index.html",
+        jobs=jobs,
+        form=form,
+        follow_up_jobs=follow_up_jobs,
     )
 
 
 @app.route("/add", methods=["GET", "POST"])
 def add_job():
-    """Add a new job application"""
+    """Add a new job application."""
     form = JobApplicationForm()
 
     if form.validate_on_submit():
-        job = JobApplication(
-            company_name=form.company_name.data,  # type: ignore
-            role=form.role.data,  # type: ignore
-            status=form.status.data,  # type: ignore
-            application_date=form.application_date.data,  # type: ignore
-            follow_up_date=form.follow_up_date.data,  # type: ignore
-            job_description=form.job_description.data,  # type: ignore
-            resume_text=form.resume_text.data,  # type: ignore
-            notes=form.notes.data,  # type: ignore
-        )
+        company_name = form.company_name.data
+        role = form.role.data
+        status = form.status.data
+        application_date = form.application_date.data
 
-        # Calculate match score if both resume text and job description (JD) exist
-        if form.resume_text.data and form.job_description.data:
+        # Narrow optional WTForms data types for static analysis.
+        if (
+            company_name is None
+            or role is None
+            or status is None
+            or application_date is None
+        ):
+            raise ValueError("Required application fields are missing.")
+
+        job = JobApplication()
+        job.company_name = company_name
+        job.role = role
+        job.status = status
+        job.application_date = application_date
+        job.follow_up_date = form.follow_up_date.data
+        job.job_description = form.job_description.data
+        job.resume_text = form.resume_text.data
+        job.notes = form.notes.data
+
+        # Calculate match score when both text fields are available.
+        if job.resume_text and job.job_description:
             job.match_score = calculate_match_score(
-                form.resume_text.data, form.job_description.data
+                job.resume_text,
+                job.job_description,
             )
 
         db.session.add(job)
@@ -120,26 +137,40 @@ def add_job():
 
 
 @app.route("/edit/<int:job_id>", methods=["GET", "POST"])
-@app.route("/edit/<int:job_id>", methods=["GET", "POST"])
 def edit_job(job_id):
     """Edit an existing job application."""
     job = JobApplication.query.get_or_404(job_id)
     form = JobApplicationForm(obj=job)
 
     if form.validate_on_submit():
-        job.company_name = form.company_name.data
-        job.role = form.role.data
-        job.status = form.status.data
-        job.application_date = form.application_date.data
+        company_name = form.company_name.data
+        role = form.role.data
+        status = form.status.data
+        application_date = form.application_date.data
+
+        # Narrow optional WTForms data types for static analysis.
+        if (
+            company_name is None
+            or role is None
+            or status is None
+            or application_date is None
+        ):
+            raise ValueError("Required application fields are missing.")
+
+        job.company_name = company_name
+        job.role = role
+        job.status = status
+        job.application_date = application_date
         job.follow_up_date = form.follow_up_date.data
         job.job_description = form.job_description.data
         job.resume_text = form.resume_text.data
         job.notes = form.notes.data
 
-        # Recalculate the match score when possible.
+        # Recalculate or clear the match score.
         if job.resume_text and job.job_description:
             job.match_score = calculate_match_score(
-                job.resume_text, job.job_description
+                job.resume_text,
+                job.job_description,
             )
         else:
             job.match_score = None
@@ -157,7 +188,7 @@ def edit_job(job_id):
 
 @app.route("/delete/<int:job_id>", methods=["POST"])
 def delete_job(job_id):
-    """Delete a job application"""
+    """Delete a job application."""
     job = JobApplication.query.get_or_404(job_id)
     company = job.company_name
     role = job.role
@@ -171,21 +202,21 @@ def delete_job(job_id):
 
 @app.route("/stats")
 def stats():
-    """Statistics dashboard"""
-    # Total applications
+    """Display application statistics."""
     total_apps = JobApplication.query.count()
 
-    # Status breakdown
     status_counts = (
-        db.session.query(JobApplication.status, db.func.count(JobApplication.id))
+        db.session.query(
+            JobApplication.status,
+            db.func.count(JobApplication.id),
+        )
         .group_by(JobApplication.status)
         .all()
     )
 
-    # Convert to dictionary for easier use in template
     status_data = {status: count for status, count in status_counts}
 
-    # Applications over time (by month)
+    # SQLite-specific month grouping.
     monthly_apps = (
         db.session.query(
             db.func.strftime("%Y-%m", JobApplication.application_date).label("month"),
@@ -206,14 +237,12 @@ def stats():
 
 @app.route("/export")
 def export_csv():
-    """Export all job applications to CSV"""
+    """Export all job applications to CSV."""
     jobs = JobApplication.query.all()
 
-    # Create CSV in memory
     output = StringIO()
     writer = csv.writer(output)
 
-    # Write header
     writer.writerow(
         [
             "Company",
@@ -226,49 +255,47 @@ def export_csv():
         ]
     )
 
-    # Write data
     for job in jobs:
         writer.writerow(
             [
                 job.company_name,
                 job.role,
                 job.status,
-                job.application_date.strftime("%Y-%m-%d"),
-                job.follow_up_date.strftime("%Y-%m-%d") if job.follow_up_date else "",
+                (
+                    job.application_date.strftime("%Y-%m-%d")
+                    if job.application_date
+                    else ""
+                ),
+                (job.follow_up_date.strftime("%Y-%m-%d") if job.follow_up_date else ""),
                 job.notes or "",
-                job.match_score or "",
+                (job.match_score if job.match_score is not None else ""),
             ]
         )
 
-    # Convert to bytes for download
-    output.seek(0)
-    byte_output = BytesIO()
-    byte_output.write(output.getvalue().encode("utf-8"))
-    byte_output.seek(0)
+    byte_output = BytesIO(output.getvalue().encode("utf-8"))
 
     return send_file(
         byte_output,
         mimetype="text/csv",
         as_attachment=True,
-        download_name=f"job_applications_{datetime.now().strftime('%Y%m%d')}.csv",
+        download_name=(f"job_applications_{datetime.now(UTC).strftime('%Y%m%d')}.csv"),
     )
 
 
 @app.errorhandler(404)
-def not_found(e):
+def not_found(error):
+    """Render the not-found page."""
     return render_template("404.html"), 404
 
 
-def calculate_match_score(resume_text, job_description):
-    """Calculate how well a resume matches a job description.
-    Returns a percentage (0-100)
-    """
-
-    # if either resume_text or job_description is missing, cant calculate
+def calculate_match_score(
+    resume_text: str | None,
+    job_description: str | None,
+) -> float | None:
+    """Calculate resume-job description similarity as a percentage."""
     if not resume_text or not job_description:
         return None
 
-    # Clean inputs
     resume_text = resume_text.strip()
     job_description = job_description.strip()
 
@@ -278,10 +305,18 @@ def calculate_match_score(resume_text, job_description):
     try:
         vectorizer = TfidfVectorizer(stop_words="english")
         tfidf_matrix = vectorizer.fit_transform([resume_text, job_description])
-        similarity = cosine_similarity(tfidf_matrix, dense_output=True)[0, 1]
-        return round(similarity * 100, 2)
-    except ValueError as e:
-        app.logger.warning(f"Error calculating match score: {e}")
+        similarity = cosine_similarity(
+            tfidf_matrix,
+            dense_output=True,
+        )[0, 1]
+
+        return round(float(similarity) * 100, 2)
+
+    except ValueError:
+        app.logger.warning(
+            "Could not calculate match score because the text "
+            "did not produce a usable TF-IDF vocabulary."
+        )
         return None
 
 
