@@ -1,13 +1,15 @@
+import csv
 import os
+from datetime import UTC, datetime, timedelta
+from io import BytesIO, StringIO
+
 from dotenv import load_dotenv
-from flask import Flask, render_template, request, redirect, url_for, flash, send_file
-from datetime import datetime, timedelta, timezone
-from models import db, JobApplication
-from forms import JobApplicationForm, SearchFilterForm
+from flask import Flask, flash, redirect, render_template, request, send_file, url_for
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
-import csv
-from io import StringIO, BytesIO
+
+from forms import JobApplicationForm, SearchFilterForm
+from models import JobApplication, db
 
 app = Flask(__name__)
 
@@ -71,7 +73,7 @@ def index():
     jobs = query.all()
 
     # Get jobs needing follow-up soon
-    today = datetime.now(timezone.utc).date()
+    today = datetime.now(UTC).date()
     three_days_from_now = today + timedelta(days=3)
     follow_up_jobs = JobApplication.query.filter(
         JobApplication.follow_up_date.between(today, three_days_from_now)
@@ -118,8 +120,9 @@ def add_job():
 
 
 @app.route("/edit/<int:job_id>", methods=["GET", "POST"])
+@app.route("/edit/<int:job_id>", methods=["GET", "POST"])
 def edit_job(job_id):
-    """Edit an existing job application"""
+    """Edit an existing job application."""
     job = JobApplication.query.get_or_404(job_id)
     form = JobApplicationForm(obj=job)
 
@@ -130,18 +133,16 @@ def edit_job(job_id):
         job.application_date = form.application_date.data
         job.follow_up_date = form.follow_up_date.data
         job.job_description = form.job_description.data
-        job.resume_text = form.resume_text
+        job.resume_text = form.resume_text.data
         job.notes = form.notes.data
-    else:
-        if request.method == "POST":
-            print("Form validation failed!")
-            print("Form errors: ", form.errors)
 
-    # Calculate match score if both resume text and job description (JD) exist
-    if form.resume_text.data and form.job_description.data:
-        job.match_score = calculate_match_score(
-            form.resume_text.data, form.job_description.data
-        )
+        # Recalculate the match score when possible.
+        if job.resume_text and job.job_description:
+            job.match_score = calculate_match_score(
+                job.resume_text, job.job_description
+            )
+        else:
+            job.match_score = None
 
         db.session.commit()
 
@@ -249,13 +250,14 @@ def export_csv():
         byte_output,
         mimetype="text/csv",
         as_attachment=True,
-        download_name=f'job_applications_{datetime.now().strftime("%Y%m%d")}.csv',
+        download_name=f"job_applications_{datetime.now().strftime('%Y%m%d')}.csv",
     )
 
 
 @app.errorhandler(404)
 def not_found(e):
     return render_template("404.html"), 404
+
 
 def calculate_match_score(resume_text, job_description):
     """Calculate how well a resume matches a job description.
@@ -270,13 +272,16 @@ def calculate_match_score(resume_text, job_description):
     resume_text = resume_text.strip()
     job_description = job_description.strip()
 
+    if not resume_text or not job_description:
+        return None
+
     try:
         vectorizer = TfidfVectorizer(stop_words="english")
         tfidf_matrix = vectorizer.fit_transform([resume_text, job_description])
-        similarity = cosine_similarity(tfidf_matrix[0:1], tfidf_matrix[1:2])[0][0]  # type: ignore
+        similarity = cosine_similarity(tfidf_matrix, dense_output=True)[0, 1]
         return round(similarity * 100, 2)
-    except Exception as e:
-        print(f"Error calculating match score: {e}")
+    except ValueError as e:
+        app.logger.warning(f"Error calculating match score: {e}")
         return None
 
 
