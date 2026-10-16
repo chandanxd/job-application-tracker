@@ -1,7 +1,8 @@
+from datetime import date
+
 from flask_wtf import FlaskForm
-from wtforms import StringField, TextAreaField, SelectField, DateField, SubmitField
+from wtforms import DateField, SelectField, StringField, SubmitField, TextAreaField
 from wtforms.validators import DataRequired, Optional
-from datetime import datetime, timezone
 
 
 class JobApplicationForm(FlaskForm):
@@ -33,7 +34,7 @@ class JobApplicationForm(FlaskForm):
     application_date = DateField(
         "Application Date",
         format="%Y-%m-%d",
-        default=datetime.now(timezone.utc),
+        default=date.today,
         validators=[DataRequired()],
     )
 
@@ -48,10 +49,7 @@ class JobApplicationForm(FlaskForm):
 
     resume_text = TextAreaField(
         "Your Resume (Optional)",
-        render_kw={
-            "rows": 8,
-            "placeholder": "Paste your resume text for matching..."
-        }
+        render_kw={"rows": 8, "placeholder": "Paste your resume text for matching..."},
     )
 
     notes = TextAreaField(
